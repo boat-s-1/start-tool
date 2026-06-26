@@ -195,6 +195,139 @@ def create_simulation_image(df, mode, wind_dir, wind_speed):
         draw.text((x + 150, 850), f"{r['score']}", font=FONT_S, fill="black")
         x += 245
 
+
+    def create_sns_poster_image(df, mode, wind_dir, wind_speed):
+    W, H = 1080, 1350
+    img = Image.new("RGB", (W, H), "#061a36")
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    ranked = df.sort_values("score", ascending=False)
+    top = int(ranked.iloc[0]["艇番"])
+    second = int(ranked.iloc[1]["艇番"])
+    third = int(ranked.iloc[2]["艇番"])
+
+    top_score = ranked.iloc[0]["score"]
+
+    # 背景
+    draw.rectangle([0, 0, W, H], fill="#061a36")
+    draw.rectangle([0, 300, W, 850], fill="#1177b8")
+
+    # タイトル
+    draw.text((40, 30), "BOAT STRIKE", font=FONT_L, fill="white")
+    draw.text((40, 90), "スタート展開予想", font=FONT_M, fill="#ffd33d")
+
+    # 風情報
+    draw.rounded_rectangle([730, 40, 1030, 135], radius=18, fill="#0b1020", outline="white", width=2)
+    draw.text((760, 60), f"{wind_dir} {wind_speed}m", font=FONT_M, fill="white")
+    draw.text((760, 100), "スタート影響あり", font=FONT_S, fill="#ffd33d")
+
+    # メインコピー
+    main_text_1 = f"{top}号艇が伸びる展開！"
+    main_text_2 = f"{second}号艇も外から加速注意！"
+
+    draw.rectangle([30, 165, 1050, 285], fill="#05070d")
+    draw.text((55, 180), main_text_1, font=FONT_L, fill="#ff3333")
+    draw.text((55, 235), main_text_2, font=FONT_M, fill="#ffd33d")
+
+    # 水面エリア
+    sea_top = 330
+    sea_bottom = 830
+
+    # スタートライン
+    draw.line([(110, sea_top + 30), (110, sea_bottom - 40)], fill="white", width=5)
+    draw.text((45, sea_top + 10), "START", font=FONT_S, fill="white")
+
+    # 1マーク
+    mark_x, mark_y = 930, 430
+    draw.ellipse([mark_x-35, mark_y-35, mark_x+35, mark_y+35], fill="orangered", outline="white", width=4)
+    draw.text((mark_x-22, mark_y-12), "1M", font=FONT_S, fill="white")
+
+    scores = df["score"].tolist()
+    max_score = max(scores)
+    min_score = min(scores)
+
+    def norm(s):
+        if max_score == min_score:
+            return 0.5
+        return (s - min_score) / (max_score - min_score)
+
+    base_y = {
+        1: sea_top + 65,
+        2: sea_top + 130,
+        3: sea_top + 195,
+        4: sea_top + 260,
+        5: sea_top + 325,
+        6: sea_top + 390,
+    }
+
+    # 残像付きで1枚に重ねる
+    for _, row in df.iterrows():
+        n = int(row["艇番"])
+        power = norm(row["score"])
+        y = base_y[n]
+
+        x_start = 145 + int(power * 70)
+        x_mid = 390 + int(power * 170)
+        x_last = 660 + int(power * 230)
+
+        y_mid = y - int(power * 30)
+        y_last = y - int(power * 70) + (n - 3) * 12
+
+        # 軌跡
+        draw.line(
+            [(x_start + 50, y + 18), (x_mid + 50, y_mid + 18), (x_last + 50, y_last + 18)],
+            fill=(255, 255, 255, 130),
+            width=4
+        )
+
+        # 残像：薄い → 濃い
+        draw_boat(draw, x_start, y, n, 0.75)
+        draw_boat(draw, x_mid, y_mid, n, 0.9)
+        draw_boat(draw, x_last, y_last, n, 1.1)
+
+        if n == top:
+            draw.text((x_last - 20, y_last - 35), f"{n} 伸び◎", font=FONT_S, fill="#ff3333")
+        elif n == second:
+            draw.text((x_last - 20, y_last - 35), f"{n} 注意", font=FONT_S, fill="#ffd33d")
+
+    # 注目艇エリア
+    draw.rounded_rectangle([30, 870, 1050, 1010], radius=20, fill="#0b1020", outline="#ffd33d", width=3)
+    draw.text((60, 890), "注目艇", font=FONT_M, fill="#ffd33d")
+
+    draw.text((60, 940), f"{top}号艇", font=FONT_L, fill="#ff3333")
+    draw.text((260, 950), "伸び足◎", font=FONT_M, fill="white")
+
+    draw.text((560, 940), f"{second}号艇", font=FONT_L, fill="#ffd33d")
+    draw.text((760, 950), "外から一撃", font=FONT_M, fill="white")
+
+    # イン逃げ期待度
+    escape_rate = max(10, min(90, int(100 - top_score + 45)))
+    if top == 1:
+        escape_rate = min(90, int(55 + top_score / 2))
+
+    draw.rounded_rectangle([30, 1035, 500, 1175], radius=20, fill="#08101f", outline="white", width=2)
+    draw.text((60, 1060), "イン逃げ期待度", font=FONT_M, fill="white")
+    draw.text((80, 1105), f"{escape_rate}%", font=FONT_L, fill="#ffd33d")
+
+    # 展開ポイント
+    draw.rounded_rectangle([530, 1035, 1050, 1175], radius=20, fill="#08101f", outline="white", width=2)
+    draw.text((560, 1060), "展開ポイント", font=FONT_M, fill="white")
+    draw.text((560, 1105), f"・{top}号艇の伸びを軸に展開", font=FONT_S, fill="white")
+    draw.text((560, 1135), f"・{second}号艇の攻めに注意", font=FONT_S, fill="white")
+
+    # 買い目
+    draw.rounded_rectangle([30, 1200, 1050, 1320], radius=20, fill="#05070d", outline="#ffd33d", width=3)
+    draw.text((60, 1220), "買い目予想", font=FONT_M, fill="#ffd33d")
+
+    hon = f"本線： {top}-{second}-{third}"
+    osa = f"押さえ： {top}-{third}-{second} / {second}-{top}-{third}"
+    ana = f"穴目： {second}-{third}-{top}"
+
+    draw.text((60, 1260), hon, font=FONT_M, fill="white")
+    draw.text((430, 1260), osa, font=FONT_S, fill="white")
+    draw.text((430, 1290), ana, font=FONT_S, fill="#ffd33d")
+
+    return img
     return img
 
 st.title("BOAT STRIKE スタート展開予想シミュレーター")
@@ -252,15 +385,16 @@ df["score"] = df.apply(
 st.subheader("計算結果")
 st.dataframe(df, use_container_width=True)
 
-if st.button("スタート展開イラストを作成"):
-    img = create_simulation_image(df, mode, wind_dir, wind_speed)
-    st.image(img, use_container_width=True)
+if st.button("SNS用ポスター画像を作成"):
+    sns_img = create_sns_poster_image(df, mode, wind_dir, wind_speed)
+    st.image(sns_img, use_container_width=True)
 
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    sns_img.save(buf, format="PNG")
+
     st.download_button(
-        label="画像を保存する",
+        label="SNS用画像を保存する",
         data=buf.getvalue(),
-        file_name="boat_strike_start_simulation.png",
+        file_name="boat_strike_sns_poster.png",
         mime="image/png"
     )
