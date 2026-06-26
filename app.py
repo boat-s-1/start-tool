@@ -195,6 +195,7 @@ def create_simulation_image(df, mode, wind_dir, wind_speed):
         draw.text((x + 150, 850), f"{r['score']}", font=FONT_S, fill="black")
         x += 245
 
+       return img
 
     def create_sns_poster_image(df, mode, wind_dir, wind_speed):
     W, H = 1080, 1350
